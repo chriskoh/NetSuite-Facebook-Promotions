@@ -33,7 +33,7 @@ function function2(){
 	var setStartDate 	= new Date(request.getParameter('date_start'));	// Import start
 	var setEndDate 		= new Date(request.getParameter('date_end')); // end
 	
-	// Search for Sales Order information (Not including Payment Method)
+	// Search for Sales Order information based on date range
 	var filters = new Array();
 	filters[0]  = new nlobjSearchFilter('trandate', null, 'within', setStartDate, setEndDate);
 	filters[1]  = new nlobjSearchFilter('type', null, 'anyof', 'SalesOrd');
@@ -82,6 +82,129 @@ function function2(){
         }
 	}
 	
+	// Get a list of unique customers
+	var unsortedCustomers = new Array();
+	for(var x = 0; x <= allResults.length; x++){
+		
+		var result = allResults[x];
+		
+		try{
+			
+			var code = result.getText('promocode');
+			
+			if(code.indexOf('fb') != -1 || code.indexOf('FB') != -1){
+				
+				if(code != '20offbible'){
+					
+					unsortedCustomers = unsortedCustomers.concat(allResults[x].getValue('entity'));	
+				}
+			}			
+		}
+		catch(err){
+			
+		}
+
+	}
+	
+	var listofCustomers = new Array();
+	listofCustomers = trim(unsortedCustomers);
+	listofCustomers.sort();
+
+	// Search for all purchases made by list of customers
+	var filters = new Array();
+	filters[0]  = new nlobjSearchFilter('entity', null, 'anyof', listofCustomers);
+	filters[1]  = new nlobjSearchFilter('type', null, 'anyof', 'SalesOrd');
+	filters[2]  = new nlobjSearchFilter('mainline', null, 'is', 'T');
+
+	var columns = new Array();
+	columns[0] = new nlobjSearchColumn('internalid').setSort();
+	columns[1] = new nlobjSearchColumn('trandate');
+	columns[2] = new nlobjSearchColumn('type');
+	columns[3] = new nlobjSearchColumn('entity');
+	columns[4] = new nlobjSearchColumn('amount');
+	columns[5] = new nlobjSearchColumn('datecreated', 'customer'); 
+	columns[6] = new nlobjSearchColumn('line');
+	columns[7] = new nlobjSearchColumn('promocode');
+
+
+	// Search results #0-999
+	var results = nlapiSearchRecord('transaction', null, filters, columns);	
+	
+	// Storage location for complete result set.
+	var allResultsCustDetail = new Array();
+	allResultsCustDetail = allResultsCustDetail.concat(results);
+		
+	// Search results #1000+
+	while(results.length == 1000)
+	{
+		var lastId2 = results[999].getValue('internalid');
+		var lastLine = results[999].getValue('line');
+		
+		filters[3] = new nlobjSearchFilter('internalidNumber', null, 'greaterthanorequalto', lastId2);
+	
+		var results = nlapiSearchRecord('transaction', null, filters, columns);
+		
+        for(var i = 0; i < results.length; i++){
+        	
+             var result = results[i];
+
+             if(Number(result.getValue('internalid')) == Number(lastId2) && Number(result.getValue('line')) > Number(lastLine)){
+
+            	 allResultsCustDetail = allResultsCustDetail.concat(result); 
+             }
+             else if(result.getValue('internalid') > lastId2){
+                	  
+                 allResultsCustDetail = allResultsCustDetail.concat(result); 
+             }
+        }
+	}
+	
+	// Array of arrays based on list of names
+	w = window;
+	for(var i = 0; i < listofCustomers.length; i++){
+		
+		w["codesfor" + listofCustomers[i]] = new Array();
+		w["nonFBSales" + listofCustomers[i]] = Number(0);
+		w["noCodeSales" + listofCustomers[i]] = Number(0); 
+		w["firsttime" + listofCustomers[i]] = Number(0);
+	}
+
+	// populate array of arrays
+	for(var x = 0; x < allResultsCustDetail.length; x++){
+		
+		var result = allResultsCustDetail[x];
+		
+		if(result.getText('promocode') != ''){
+			
+			w["codesfor" + result.getValue('entity')] = w["codesfor" + result.getValue('entity')].concat(result.getText('promocode'));
+			w["nonFBSales" + result.getValue('entity')] += Number(result.getValue('amount'));
+			w["firsttime" + result.getValue('entity')]++;
+
+		}else{
+			
+			w["noCodeSales" + result.getValue('entity')] += Number(result.getValue('amount'));
+			w["firsttime" + result.getValue('entity')]++;
+		}
+	}
+	
+	// get length of longest array
+	var longest = 0;
+	for(var x = 0; x < listofCustomers.length; x++){
+		
+		if(Number(w["codesfor" + listofCustomers[x]].length) > Number(longest)){
+			
+			longest = Number(w["codesfor" + listofCustomers[x]].length);
+			
+		}
+		/*
+		print('customer', listofCustomers[x]);
+		for(var x2 = 0; x2 < w["codesfor" + listofCustomers[x]].length; x2++){
+			
+			print(w["codesfor" + listofCustomers[x]][x2]);
+		}*/
+	}
+	print('longest', longest);
+	
 	
 	html  = '<html>';
 	html += '<head>';
@@ -98,46 +221,140 @@ function function2(){
 				'<td>First Time Customer (Y/N)</td>' +
 				'<td>SO Date</td>' +
 				'<td>Customer Creation Date</td>' +
-				'<td>Promotion</td>' +
-				'<td>Amount</td>' +
+				'<td>Promotion</td>';
+	/*
+	// variable length additional promotions based on list of promotions
+	for(var x = 1; x < longest; x++){
+		
+		html += '<td>Additional Promotion #' + x + '</td>';
+	}
+	*/
+	html +=		'<td>FB Sales Amount</td>' +
+				'<td>Non-FB Sales Amount</td>' +
+				'<td>No Code Sales Amount</td>' +
 			'</tr>';
+	
+	var namesposted = new Array();
 		
 	for(var x = 0; x < allResults.length; x++){
-		
-		result = allResults[x];
-		
-		var code = result.getText('promocode');
-		
-		if(code.indexOf('fb') != -1 || code.indexOf('FB') != -1){
-			
-			if(code != '20offbible'){
 				
-				d1 = new Date(result.getValue('trandate'));
-			    d2 = new Date(result.getValue('datecreated', 'customer'));
-				if( d1.format("m/d/yy") == d2.format("m/d/yy") ){
+		result = allResults[x];
+
+		if(namesposted.indexOf(result.getText('entity')) > -1){
+			
+			// in array
+		}else{
+			
+			// not in array
+			
+			var code = result.getText('promocode');
+			
+			if(code.indexOf('fb') != -1 || code.indexOf('FB') != -1){
+				
+				if(code != '20offbible'){
 					
-					html += '<tr>' +
-								'<td>' + result.getText('entity') + '</td>' +
-								'<td> Y </td>' +
-								'<td>' + result.getValue('trandate') + '</td>' +
-								'<td>' + new Date(result.getValue('datecreated', 'customer')).format('mm/dd/yyyy') + '</td>' +
-								'<td>' + result.getText('promocode') + '</td>' +
-								'<td>' + result.getValue('amount') + '</td>' +
-							'</tr>';
-					
-				}else{
-					
-					html += '<tr>' +
-					'<td>' + result.getText('entity') + '</td>' +
-					'<td> N </td>' +
-					'<td>' + result.getValue('trandate') + '</td>' +
-					'<td>' + new Date(result.getValue('datecreated', 'customer')).format('mm/dd/yyyy') + '</td>' +
-					'<td>' + result.getText('promocode') + '</td>' +
-					'<td>' + result.getValue('amount') + '</td>' +
-				'</tr>';
+					d1 = new Date(result.getValue('trandate'));
+				    d2 = new Date(result.getValue('datecreated', 'customer'));
+				    // Initial date check to see if customer is new
+					if( d1.format("m/d/yy") == d2.format("m/d/yy") ){
+						
+						html += '<tr>' +
+									'<td>' + result.getText('entity') + '</td>';
+						
+						if(Number(w["firsttime" + result.getValue('entity')]) == Number(1)){
+							
+							html += '<td> Y </td>';
+						}else{
+							
+							// New check to see if there were sales made after the initial coupon
+							if(new Date(result.getValue('trandate')).format('mm/dd/yyyy') == new Date(result.getValue('datecreated', 'customer')).format('mm/dd/yyyy')){
+								
+								html += '<td> Y </td>';
+							}else{
+								
+								html += '<td> N </td>';
+							}
+						}
+							html +=	'<td>' + result.getValue('trandate') + '</td>' +
+									'<td>' + new Date(result.getValue('datecreated', 'customer')).format('mm/dd/yyyy') + '</td>' +
+									'<td>' + result.getText('promocode') + '</td>';
+						
+						var currentCode = result.getText('promocode');
+						/*
+						// variable to count how many codes have been printed
+						var printed = 0;
+						for(var y = 0; y < w["codesfor" + result.getValue('entity')].length; y++){
+							
+							if(result.getText('promocode') != w["codesfor" + result.getValue('entity')][y]){
+								
+								html += '<td>' + w["codesfor" + result.getValue('entity')][y] + '</td>';
+								printed++;
+							}
+						}
+						
+						while(printed < (longest - 1)){
+							html += '<td> </td>';
+							printed++;
+						}
+						*/
+						html +=		'<td>' + result.getValue('amount') + '</td>';		
+						var tempNonSales = Number(w["nonFBSales" + result.getValue('entity')]) - Number(result.getValue('amount'));
+						html +=		'<td>' + tempNonSales.toFixed(2) + '</td>';	
+						html +=		'<td>' + w["noCodeSales" + result.getValue('entity')].toFixed(2) + '</td>';	
+						html +=		'</tr>';
+						
+					}else{
+						
+						html += '<tr>' +
+									'<td>' + result.getText('entity') + '</td>';
+						
+						if(Number(w["firsttime" + result.getValue('entity')]) == Number(1)){
+							
+							html += '<td> Y </td>';
+						}else{
+							
+							if(new Date(result.getValue('trandate')).format('mm/dd/yyyy') == new Date(result.getValue('datecreated', 'customer')).format('mm/dd/yyyy')){
+								
+								html += '<td> Y </td>';
+							}else{
+								
+								html += '<td> N </td>';
+							}
+						}				
+						
+						html += 	'<td>' + result.getValue('trandate') + '</td>' +
+									'<td>' + new Date(result.getValue('datecreated', 'customer')).format('mm/dd/yyyy') + '</td>' +
+									'<td>' + result.getText('promocode') + '</td>';
+						
+						var currentCode = result.getText('promocode');
+						
+						/*
+						// variable to count how many codes have been printed
+						var printed = 0;
+						for(var y = 0; y < w["codesfor" + result.getValue('entity')].length; y++){
+							
+							if(result.getText('promocode') != w["codesfor" + result.getValue('entity')][y]){
+								
+								html += '<td>' + w["codesfor" + result.getValue('entity')][y] + '</td>';
+								printed++;
+							}
+						}
+						
+						while(printed < (longest - 1)){
+							html += '<td> </td>';
+							printed++;
+						}
+						*/
+						html +=		'<td>' + result.getValue('amount') + '</td>';	
+						var tempNonSales = Number(w["nonFBSales" + result.getValue('entity')]) - Number(result.getValue('amount'));
+						html +=		'<td>' + tempNonSales.toFixed(2) + '</td>';	
+						html +=		'<td>' + w["noCodeSales" + result.getValue('entity')].toFixed(2) + '</td>';
+						html +=		'</tr>';
+					}
 				}
 			}
 		}
+		namesposted = namesposted.concat(result.getText('entity'));
 	}
 
 	
@@ -273,3 +490,22 @@ dateFormat.i18n = {
 Date.prototype.format = function (mask, utc) {
     return dateFormat(this, mask, utc);
 };
+
+function trim(arr)
+{
+var i,
+len=arr.length,
+out=[],
+obj={};
+
+for (i=0;i<len;i++) 
+{
+	obj[arr[i]]=0;
+}
+for (i in obj) 
+{
+	out.push(i);
+}
+
+return out;
+}
