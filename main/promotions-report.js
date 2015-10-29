@@ -196,8 +196,6 @@ function function2() {
     html += '<head>';
     html += '<script src="https://system.netsuite.com/core/media/media.nl?id=359359&c=811217&h=65afe36a877be122622c&_xt=.js"></script>'; // table sort
     html += '<link rel="stylesheet" type="text/css" href="https://system.netsuite.com/core/media/media.nl?id=400790&c=811217&h=c3d4ce9af7d71b7160e3&_xt=.css">';
-    //html += '<script src="http://code.jquery.com/jquery-1.5.1.min.js" type="text/javascript"></script>';
-    //html += '<script src="https://system.netsuite.com/core/media/media.nl?id=420986&c=811217&h=4117b836519d6a473b55&_xt=.js" type="text/javascript"></script>';
     html += '</head>';
     html += '<body>';
 
@@ -208,13 +206,7 @@ function function2() {
         '<td id="myTDBlueData">SO Date</td>' +
         '<td id="myTDBlueData">Customer Creation Date</td>' +
         '<td id="myTDBlueData">Promotion</td>';
-    /*
-    // variable length additional promotions based on list of promotions
-    for(var x = 1; x < longest; x++){
-    	
-    	html += '<td>Additional Promotion #' + x + '</td>';
-    }
-    */
+
     html += '<td id="myTDBlueData">FB Sales Amount</td>' +
         '<td id="myTDBlueData">Non-FB Sales Amount</td>' +
         '<td id="myTDBlueData">No Code Sales Amount</td>' +
@@ -285,23 +277,7 @@ function function2() {
                             '<td id="' + color + '">' + result.getText('promocode') + '</td>';
 
                         var currentCode = result.getText('promocode');
-                        /*
-                        // variable to count how many codes have been printed
-                        var printed = 0;
-                        for(var y = 0; y < w["codesfor" + result.getValue('entity')].length; y++){
-                        	
-                        	if(result.getText('promocode') != w["codesfor" + result.getValue('entity')][y]){
-                        		
-                        		html += '<td>' + w["codesfor" + result.getValue('entity')][y] + '</td>';
-                        		printed++;
-                        	}
-                        }
-						
-                        while(printed < (longest - 1)){
-                        	html += '<td> </td>';
-                        	printed++;
-                        }
-                        */
+                        
                         html += '<td id="' + color + '">' + result.getValue('amount') + '</td>';
                         var tempNonSales = Number(w["nonFBSales" + result.getValue('entity')]) - Number(result.getValue('amount'));
                         html += '<td id="' + color + '">' + tempNonSales.toFixed(2) + '</td>';
@@ -345,23 +321,6 @@ function function2() {
 
                         var currentCode = result.getText('promocode');
 
-                        /*
-                        // variable to count how many codes have been printed
-                        var printed = 0;
-                        for(var y = 0; y < w["codesfor" + result.getValue('entity')].length; y++){
-                        	
-                        	if(result.getText('promocode') != w["codesfor" + result.getValue('entity')][y]){
-                        		
-                        		html += '<td>' + w["codesfor" + result.getValue('entity')][y] + '</td>';
-                        		printed++;
-                        	}
-                        }
-						
-                        while(printed < (longest - 1)){
-                        	html += '<td> </td>';
-                        	printed++;
-                        }
-                        */
                         html += '<td id="' + color + '">' + result.getValue('amount') + '</td>';
                         var tempNonSales = Number(w["nonFBSales" + result.getValue('entity')]) - Number(result.getValue('amount'));
                         html += '<td id="' + color + '">' + tempNonSales.toFixed(2) + '</td>';
